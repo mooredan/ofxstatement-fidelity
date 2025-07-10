@@ -2,15 +2,15 @@ import os
 
 from ofxstatement.ui import UI
 
-from ofxstatement_sample.plugin import SamplePlugin
+from ofxstatement_fidelity.plugin import FidelityPlugin
 
 
-def test_sample() -> None:
-    plugin = SamplePlugin(UI(), {})
+def test_fidelity() -> None:
+    plugin = FidelityPlugin(UI(), {})
     here = os.path.dirname(__file__)
-    sample_filename = os.path.join(here, "sample-statement.csv")
+    fidelity_filename = os.path.join(here, "fidelity-statement.csv")
 
-    parser = plugin.get_parser(sample_filename)
+    parser = plugin.get_parser(fidelity_filename)
     statement = parser.parse()
 
     assert statement is not None
