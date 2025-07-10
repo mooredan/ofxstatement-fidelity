@@ -5,14 +5,14 @@ from ofxstatement.parser import StatementParser
 from ofxstatement.statement import Statement, StatementLine
 
 
-class SamplePlugin(Plugin):
+class FidelityPlugin(Plugin):
     """Sample plugin (for developers only)"""
 
-    def get_parser(self, filename: str) -> "SampleParser":
-        return SampleParser(filename)
+    def get_parser(self, filename: str) -> "FidelityParser":
+        return FidelityParser(filename)
 
 
-class SampleParser(StatementParser[str]):
+class FidelityParser(StatementParser[str]):
     def __init__(self, filename: str) -> None:
         super().__init__()
         self.filename = filename
