@@ -1,21 +1,30 @@
 import sys
-import csv
 
 # from typing import Iterable
 
-from ofxstatement.parser import CsvStatementParser
 from ofxstatement.plugin import Plugin
+from ofxstatement.parser import CsvStatementParser
+from ofxstatement.parser import AbstractStatementParser
 # from ofxstatement.parser import StatementParser
 # from ofxstatement.statement import Statement, StatementLine
 # from ofxstatement.statement import StatementLine
+from ofxstatement.statement import Statement, InvestStatementLine, StatementLine
+
+import logging
+
+LOGGER = logging.getLogger(__name__)
+
+import csv
 
 
 class FidelityPlugin(Plugin):
     """Sample plugin (for developers only)"""
-
-    def get_parser(self, filename) -> "FidelityParser":
-        fh = open(filename, "r", encoding='utf-8')
-        parser = FidelityParser(fh)
+    # def get_parser(self, filename) -> "FidelityParser":
+    #     fh = open(filename, "r", encoding='utf-8')
+    #     parser = FidelityParser(fh)
+    #     return parser
+    def get_parser(self, filename: str) -> "FidelityCSVParser":
+        parser = FidelityCSVParser(filename)
         return parser
 
 
@@ -23,10 +32,11 @@ class FidelityPlugin(Plugin):
 # class FidelityParser(CsvStatementParser[str]):
 class FidelityParser(CsvStatementParser):
 
-    date_format = "%d/%m/%Y"
+    date_format = "%m/%d/%Y"
     mappings = {
-            'date': 1,
-            'memo': 2
+            'date': 0,
+            'memo': 1,
+            'amount': 10
     }
 
 
@@ -49,16 +59,157 @@ class FidelityParser(CsvStatementParser):
     #         return super().parse()
 
 
+#    def parse(self) -> Statement:
+#        """Read and parse statement
+#
+#        Return Statement object
+#
+#        May raise exceptions.ParseException on malformed input.
+#        """
+#        assert hasattr(self, "statement"), "StatementParser.__init__() not called"
+#
+#        reader = self.split_records()
+#        for line in reader:
+#            self.cur_record += 1
+#            if not line:
+#                continue
+#            stmt_line = self.parse_record(line)
+#            if stmt_line:
+#                stmt_line.assert_valid()
+#                self.statement.lines.append(stmt_line)
+#        return self.statement
+
+
+
     # def split_records(self) -> Iterable[str]:
     def split_records(self):
         """Return iterable object consisting of a line per transaction"""
         msg = f"split_records"
         print(msg, file=sys.stderr)
-        return []
+        reader = csv.reader(self.fin)
+        return reader 
 
 
     def parse_record(self, line):
         """Parse given transaction line and return StatementLine object"""
-        msg = f"parse_record"
+
+        # line[0 ] : Run Date
+        # line[1 ] : Action
+        # line[2 ] : Symbol
+        # line[3 ] : Description
+        # line[4 ] : Type
+        # line[5 ] : Quantity
+        # line[6 ] : Price ($)
+        # line[7 ] : Commission ($)
+        # line[8 ] : Fees ($)
+        # line[9 ] : Accrued Interest ($)
+        # line[10] : Amount ($)
+        # line[11] : Cash Balance ($)
+        # line[12] : Settlement Date
+        
+        # msg = f"parse_record"
+        # print(msg, file=sys.stderr)
+
+        # msg = f"self.cur_record: {self.cur_record}"
+        # print(msg, file=sys.stderr)
+
+        line_length = len(line)
+
+        if line_length != 13:
+            return None
+       
+        # msg = f"line_length: {line_length}"
+        # print(msg, file=sys.stderr)
+
+        if not line[0]:
+            return None
+
+        if line[0] == "Run Date":
+            return None
+
+        if line[0][:1] == "\"":
+            return None
+
+
+        msg = f"line[0]: {line[0]}"
         print(msg, file=sys.stderr)
-        return StatementLine()
+
+        msg = f"line[1]: {line[1]}"
+        print(msg, file=sys.stderr)
+
+
+        # if self.cur_record > 0:
+        #     return None
+
+
+        stmtline = super(FidelityParser, self).parse_record(line)
+
+        stmtline.id = "xyz"
+
+        return stmtline
+
+
+###########################################################################
+
+class FidelityCSVPlugin(Plugin):
+    """Parses Fidelity Brokerage Account CSV History file"""
+
+    def get_parser(self, filename: str) -> "FidelityCSVParser":
+        return FidelityCSVParser(filename)
+
+
+class FidelityCSVParser(AbstractStatementParser):
+    statement: Statement
+    csvparser: FidelityParser
+
+    def __init__(self, filename: str) -> None:
+        super().__init__()
+        self.filename = filename
+        self.statement = Statement()
+        self.statement.broker_id = "Fidelity"
+        self.statement.currency = "USD"
+        self.id_generator = IdGenerator()
+
+
+    def parse(self) -> Statement:
+        """Main entry point for parsers"""
+        with open(self.filename, "r") as f:
+           msg = f"{self.filename}"
+           print(msg, file=sys.stderr)
+
+
+           self.csvparser = FidelityParser(f)
+           csvstatement = self.csvparser.parse()
+
+
+           print(f"{csvstatement}")
+
+           numlines = len(csvstatement.lines)
+           msg = f"numlines: {numlines}"
+
+           print(msg, file=sys.stderr)
+
+
+           print(f"{self.statement}") 
+
+           return self.statement
+
+
+##########################################################################
+class IdGenerator:
+    """Generates a unique ID based on the date
+
+    Hopefully any JSON file that we get will have all the transactions for a
+    given date, and hopefully in the same order each time so that these IDs
+    will match up across exports.
+    """
+
+    def __init__(self) -> None:
+        self.date_count: Dict[datetime, int] = {}
+
+    def create_id(self, date) -> str:
+        self.date_count[date] = self.date_count.get(date, 0) + 1
+        return f'{datetime.strftime(date, "%Y%m%d")}-{self.date_count[date]}'
+
+    
+
