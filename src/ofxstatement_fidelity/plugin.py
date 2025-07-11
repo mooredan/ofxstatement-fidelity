@@ -1,5 +1,7 @@
 import sys
 
+from datetime import datetime
+import re
 # from typing import Iterable
 
 from ofxstatement.plugin import Plugin
@@ -47,6 +49,7 @@ class FidelityParser(CsvStatementParser):
         # msg = f"__init__ : {filename}"
         msg = f"__init__ :"
         print(msg, file=sys.stderr)
+        self.id_generator = IdGenerator()
 
     # def parse(self) -> Statement:
     #     """Main entry point for parsers
@@ -144,7 +147,10 @@ class FidelityParser(CsvStatementParser):
 
         stmtline = super(FidelityParser, self).parse_record(line)
 
-        stmtline.id = "xyz"
+        date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
+        id = self.id_generator.create_id(date)
+        stmtline.id = id
+
 
         return stmtline
 
@@ -190,9 +196,29 @@ class FidelityCSVParser(AbstractStatementParser):
 
            for line in csvstatement.lines:
                print(f"{line}")
+               match_result = re.match(r"^REINVESTMENT ", line.memo)
+               if match_result:
+                   msg = f"match!"
+                   print(msg, file=sys.stderr)
 
 
-           print(f"{self.statement}") 
+
+
+
+
+           # for line in csvstatement.invest_lines:
+           #     print(f"{line}")
+
+
+
+
+
+
+
+           # print(f"{self.statement}") 
+
+           self.statement.lines = csvstatement.lines;
+           self.statement.invest_lines = csvstatement.invest_lines;
 
            return self.statement
 
