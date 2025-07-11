@@ -11,12 +11,12 @@ all : build install
 
 .PHONY: build
 build :
-	python3 -m build
+	python3 -m build > build.log
 
 
 .PHONY: install
 install :
-	pip install .
+	pip install . > install.log
 
 
 .PHONY: test

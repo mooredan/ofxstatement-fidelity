@@ -9,11 +9,8 @@ from typing import Dict, Optional, Any, Iterable, List, TextIO, TypeVar, Generic
 
 from ofxstatement.plugin import Plugin
 from ofxstatement.parser import StatementParser
-from ofxstatement.parser import CsvStatementParser
+# from ofxstatement.parser import CsvStatementParser
 from ofxstatement.parser import AbstractStatementParser
-# from ofxstatement.parser import StatementParser
-# from ofxstatement.statement import Statement, StatementLine
-# from ofxstatement.statement import StatementLine
 from ofxstatement.statement import Statement, InvestStatementLine, StatementLine
 
 import logging
@@ -25,16 +22,12 @@ import csv
 
 class FidelityPlugin(Plugin):
     """Sample plugin (for developers only)"""
-    # def get_parser(self, filename) -> "FidelityParser":
-    #     fh = open(filename, "r", encoding='utf-8')
-    #     parser = FidelityParser(fh)
-    #     return parser
-    def get_parser(self, filename: str) -> "FidelityCSVParser":
-        parser = FidelityCSVParser(filename)
+    def get_parser(self, filename: str) -> "FidelityParser":
+        parser = FidelityParser(filename)
         return parser
 
 
-class myCsvStatementParser(StatementParser[List[str]]):
+class FidelityCsvStatementParser(StatementParser[List[str]]):
     """Generic csv statement parser"""
 
     fin: TextIO  # file input stream
@@ -63,7 +56,7 @@ class myCsvStatementParser(StatementParser[List[str]]):
 
 
 
-class FidelityParser(myCsvStatementParser):
+class FidelityCSVParser(FidelityCsvStatementParser):
     statement: Statement
     # id_generator: IdGenerator
 
@@ -151,7 +144,7 @@ class FidelityParser(myCsvStatementParser):
         #    print(msg, file=sys.stderr)
 
 
-        invest_stmt_line = super(FidelityParser, self).parse_record(line)
+        invest_stmt_line = super(FidelityCSVParser, self).parse_record(line)
         date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
         id = self.id_generator.create_id(date)
         invest_stmt_line.id = id
@@ -203,21 +196,10 @@ class FidelityParser(myCsvStatementParser):
         return invest_stmt_line
 
 
-###########################################################################
 
-#class FidelityCSVPlugin(Plugin):
-#    """Parses Fidelity Brokerage Account CSV History file"""
-#
-#    def get_parser(self, filename: str) -> "FidelityCSVParser":
-#        return FidelityCSVParser(filename)
-#
-#
-
-
-
-class FidelityCSVParser(AbstractStatementParser):
+class FidelityParser(AbstractStatementParser):
     statement: Statement
-    csvparser: FidelityParser
+    csvparser: FidelityCSVParser
 
     def __init__(self, filename: str) -> None:
         super().__init__()
@@ -235,7 +217,11 @@ class FidelityCSVParser(AbstractStatementParser):
            print(msg, file=sys.stderr)
 
 
-           self.csvparser = FidelityParser(f)
+           # a bit tricky here, Let's use the CSVStatementParser
+           # first to conveniently read the Fidelity .csv file
+           # then move things over to a statement in which
+           # lines are invest_lines    
+           self.csvparser = FidelityCSVParser(f)
            csvstatement = self.csvparser.parse()
 
            # print(f"{csvstatement}")
