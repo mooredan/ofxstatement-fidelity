@@ -2,9 +2,10 @@ import sys
 
 from datetime import datetime
 import re
-# from typing import Iterable
+from typing import Dict, Optional, Iterable, List, TextIO
 
 from ofxstatement.plugin import Plugin
+from ofxstatement.parser import StatementParser
 from ofxstatement.parser import CsvStatementParser
 from ofxstatement.parser import AbstractStatementParser
 # from ofxstatement.parser import StatementParser
@@ -30,9 +31,37 @@ class FidelityPlugin(Plugin):
         return parser
 
 
+class myCsvStatementParser(StatementParser[List[str]]):
+    """Generic csv statement parser"""
+
+    fin: TextIO  # file input stream
+
+    # 0-based csv column mapping to StatementLine field
+    mappings: Dict[str, int] = {}
+
+    def __init__(self, fin: TextIO) -> None:
+        super().__init__()
+        self.fin = fin
+
+    def split_records(self) -> Iterable[List[str]]:
+        return csv.reader(self.fin)
+
+    def parse_record(self, line: List[str]) -> Optional[StatementLine]:
+        stmt_line = StatementLine()
+        for field, col in self.mappings.items():
+            if col >= len(line):
+                raise ValueError(
+                    "Cannot find column %s in line of %s items " % (col, len(line))
+                )
+            rawvalue = line[col]
+            value = self.parse_value(rawvalue, field)
+            setattr(stmt_line, field, value)
+        return stmt_line
+
+
 # class FidelityParser(CsvStatementParser[str]):
 # class FidelityParser(CsvStatementParser[str]):
-class FidelityParser(CsvStatementParser):
+class FidelityParser(myCsvStatementParser):
 
     date_format = "%m/%d/%Y"
     mappings = {
@@ -200,6 +229,10 @@ class FidelityCSVParser(AbstractStatementParser):
                if match_result:
                    msg = f"match!"
                    print(msg, file=sys.stderr)
+                   invest_line = InvestStatementLine
+                   invest_line.id = line.id
+                   invest_line.data = line.date
+                   invest_line.memo = line.memo
 
 
 
