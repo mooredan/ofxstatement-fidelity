@@ -1,10 +1,29 @@
-all: test mypy black
+PROJ := ofxstatement_fidelity
 
-PHONY: test
+
+# all: test mypy black
+
+.PHONY: all
+
+
+all : build install
+
+
+.PHONY: build
+build :
+	python3 -m build
+
+
+.PHONY: install
+install :
+	pip install .
+
+
+.PHONY: test
 test:
 	pytest
 
-PHONY: coverage
+.PHONY: coverage
 coverage: bin/pytest
 	pytest --cov src/ofxstatement
 
@@ -15,3 +34,11 @@ black:
 .PHONY: mypy
 mypy:
 	mypy src tests
+
+
+
+.PHONY : clean
+clean :
+	- @ rm -rf build
+	- @ rm -rf dist
+	rm -rf src/$(PROJ).egg-info
