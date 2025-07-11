@@ -1,5 +1,7 @@
 import sys
 
+from os import path
+
 from decimal import Decimal, Decimal as D
 from datetime import datetime
 import re
@@ -44,8 +46,8 @@ class myCsvStatementParser(StatementParser[List[str]]):
         super().__init__()
         self.fin = fin
 
-    def split_records(self) -> Iterable[List[str]]:
-        return csv.reader(self.fin)
+    # def split_records(self) -> Iterable[List[str]]:
+    #     return csv.reader(self.fin)
 
     def parse_record(self, line: List[str]) -> Optional[InvestStatementLine]:
         invest_stmt_line = InvestStatementLine()
@@ -81,14 +83,12 @@ class FidelityParser(myCsvStatementParser):
     #     self.id_generator = IdGenerator()
 
 
-
-
     def __init__(self, f):
         super().__init__(f)
     #     self.filename = filename
         # msg = f"__init__ : {filename}"
-        msg = f"__init__ :"
-        print(msg, file=sys.stderr)
+        # msg = f"__init__ :"
+        # print(msg, file=sys.stderr)
         self.statement = Statement()
         self.statement.broker_id = "Fidelity"
         self.statement.currency = "USD"
@@ -98,8 +98,8 @@ class FidelityParser(myCsvStatementParser):
     # def split_records(self) -> Iterable[str]:
     def split_records(self):
         """Return iterable object consisting of a line per transaction"""
-        msg = f"split_records"
-        print(msg, file=sys.stderr)
+        # msg = f"split_records"
+        # print(msg, file=sys.stderr)
         reader = csv.reader(self.fin)
         return reader 
 
@@ -145,10 +145,10 @@ class FidelityParser(myCsvStatementParser):
             return None
 
 
-        # print({list}, file=sys.stderr)
-        for idx in range(13):
-           msg = f"line[{idx}]: {line[idx]}"
-           print(msg, file=sys.stderr)
+        # # print({list}, file=sys.stderr)
+        # for idx in range(13):
+        #    msg = f"line[{idx}]: {line[idx]}"
+        #    print(msg, file=sys.stderr)
 
 
         invest_stmt_line = super(FidelityParser, self).parse_record(line)
@@ -168,15 +168,15 @@ class FidelityParser(myCsvStatementParser):
             invest_stmt_line.trntype = "BUYSTOCK"
             invest_stmt_line.trntype_detailed = "BUY"
             invest_stmt_line.security_id = line[2]
-            invest_stmt_line.units = line[5]
-            invest_stmt_line.unit_price = line[6]
+            invest_stmt_line.units = Decimal(line[5])
+            invest_stmt_line.unit_price = Decimal(line[6])
 
 
         match_result = re.match(r"^DIVIDEND RECEIVED ", line[1])
         if match_result:
             invest_stmt_line.trntype = "INCOME"
             invest_stmt_line.trntype_detailed = "DIV"
-            # invest_stmt_line.security_id = line[2]
+            invest_stmt_line.security_id = line[2]
             # invest_stmt_line.units = line[5]
             # invest_stmt_line.unit_price = line[6]
 
@@ -185,8 +185,16 @@ class FidelityParser(myCsvStatementParser):
             invest_stmt_line.trntype = "BUYSTOCK"
             invest_stmt_line.trntype_detailed = "BUY"
             invest_stmt_line.security_id = line[2]
-            invest_stmt_line.units = line[5]
-            invest_stmt_line.unit_price = line[6]
+            invest_stmt_line.units = Decimal(line[5])
+            invest_stmt_line.unit_price = Decimal(line[6])
+
+        match_result = re.match(r"^YOU SOLD ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "SELLSTOCK"
+            invest_stmt_line.trntype_detailed = "SELL"
+            invest_stmt_line.security_id = line[2]
+            invest_stmt_line.units = Decimal(line[5])
+            invest_stmt_line.unit_price = Decimal(line[6])
 
 
         print(f"{invest_stmt_line}")
@@ -230,20 +238,33 @@ class FidelityCSVParser(AbstractStatementParser):
            self.csvparser = FidelityParser(f)
            csvstatement = self.csvparser.parse()
 
-           print(f"{csvstatement}")
+           # print(f"{csvstatement}")
 
-           numlines = len(csvstatement.lines)
-           msg = f"lines: numlines: {numlines}"
-           print(msg, file=sys.stderr)
+           # numlines = len(csvstatement.lines)
+           # msg = f"lines: numlines: {numlines}"
+           # print(msg, file=sys.stderr)
 
-           numlines = len(csvstatement.invest_lines)
-           msg = f"invest_lines: numlines: {numlines}"
-           print(msg, file=sys.stderr)
+           # numlines = len(csvstatement.invest_lines)
+           # msg = f"invest_lines: numlines: {numlines}"
+           # print(msg, file=sys.stderr)
+
+           # derive account id from file name
+           match = re.search(r".*History_for_Account_(.*)\.csv", path.basename(self.filename))
+           if match:
+               self.statement.account_id = match[1]
 
 
+           self.statement.invest_lines = csvstatement.lines
+           self.statement.invest_lines.reverse()
+           # after reversing, update the id
 
-
-           self.statement.invest_lines = csvstatement.lines;
+           for line in self.statement.invest_lines:
+              # print(f"{line.id}")
+              date = line.date
+              new_id = self.id_generator.create_id(date)
+              line.id = new_id
+              # print(f"{line.id}")
+              
         
 
            print(f"{self.statement}")
