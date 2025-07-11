@@ -1,8 +1,9 @@
 import sys
 
+from decimal import Decimal, Decimal as D
 from datetime import datetime
 import re
-from typing import Dict, Optional, Iterable, List, TextIO
+from typing import Dict, Optional, Any, Iterable, List, TextIO, TypeVar, Generic
 
 from ofxstatement.plugin import Plugin
 from ofxstatement.parser import StatementParser
@@ -59,8 +60,7 @@ class myCsvStatementParser(StatementParser[List[str]]):
         return invest_stmt_line
 
 
-# class FidelityParser(CsvStatementParser[str]):
-# class FidelityParser(CsvStatementParser[str]):
+
 class FidelityParser(myCsvStatementParser):
 
     date_format = "%m/%d/%Y"
@@ -79,38 +79,6 @@ class FidelityParser(myCsvStatementParser):
         msg = f"__init__ :"
         print(msg, file=sys.stderr)
         self.id_generator = IdGenerator()
-
-    # def parse(self) -> Statement:
-    #     """Main entry point for parsers
-
-    #     super() implementation will call to split_records and parse_record to
-    #     process the file.
-    #     """
-    #       
-    #     with open(self.filename, "r") as f:
-    #         return super().parse()
-
-
-#    def parse(self) -> Statement:
-#        """Read and parse statement
-#
-#        Return Statement object
-#
-#        May raise exceptions.ParseException on malformed input.
-#        """
-#        assert hasattr(self, "statement"), "StatementParser.__init__() not called"
-#
-#        reader = self.split_records()
-#        for line in reader:
-#            self.cur_record += 1
-#            if not line:
-#                continue
-#            stmt_line = self.parse_record(line)
-#            if stmt_line:
-#                stmt_line.assert_valid()
-#                self.statement.lines.append(stmt_line)
-#        return self.statement
-
 
 
     # def split_records(self) -> Iterable[str]:
@@ -163,34 +131,66 @@ class FidelityParser(myCsvStatementParser):
             return None
 
 
-        msg = f"line[0]: {line[0]}"
-        print(msg, file=sys.stderr)
-
-        msg = f"line[1]: {line[1]}"
-        print(msg, file=sys.stderr)
-
-
-        # if self.cur_record > 0:
-        #     return None
+        # print({list}, file=sys.stderr)
+        for idx in range(13):
+           msg = f"line[{idx}]: {line[idx]}"
+           print(msg, file=sys.stderr)
 
 
-        stmtline = super(FidelityParser, self).parse_record(line)
-
+        invest_stmt_line = super(FidelityParser, self).parse_record(line)
         date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
         id = self.id_generator.create_id(date)
-        stmtline.id = id
+        invest_stmt_line.id = id
+
+        if line[12]:
+            date_user = datetime.strptime(line[12][0:10], "%m/%d/%Y")
+        else:
+            date_user = date
+
+        invest_stmt_line.date_user = date_user
+
+        match_result = re.match(r"^REINVESTMENT ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "BUYSTOCK"
+            invest_stmt_line.trntype_detailed = "BUY"
+            invest_stmt_line.security_id = line[2]
+            invest_stmt_line.units = line[5]
+            invest_stmt_line.unit_price = line[6]
 
 
-        return stmtline
+        match_result = re.match(r"^DIVIDEND RECEIVED ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "INCOME"
+            invest_stmt_line.trntype_detailed = "DIV"
+            # invest_stmt_line.security_id = line[2]
+            # invest_stmt_line.units = line[5]
+            # invest_stmt_line.unit_price = line[6]
+
+        match_result = re.match(r"^YOU BOUGHT ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "BUYSTOCK"
+            invest_stmt_line.trntype_detailed = "BUY"
+            invest_stmt_line.security_id = line[2]
+            invest_stmt_line.units = line[5]
+            invest_stmt_line.unit_price = line[6]
+
+
+        print(f"{invest_stmt_line}")
+
+
+        return invest_stmt_line
 
 
 ###########################################################################
 
-class FidelityCSVPlugin(Plugin):
-    """Parses Fidelity Brokerage Account CSV History file"""
+#class FidelityCSVPlugin(Plugin):
+#    """Parses Fidelity Brokerage Account CSV History file"""
+#
+#    def get_parser(self, filename: str) -> "FidelityCSVParser":
+#        return FidelityCSVParser(filename)
+#
+#
 
-    def get_parser(self, filename: str) -> "FidelityCSVParser":
-        return FidelityCSVParser(filename)
 
 
 class FidelityCSVParser(AbstractStatementParser):
@@ -216,44 +216,45 @@ class FidelityCSVParser(AbstractStatementParser):
            self.csvparser = FidelityParser(f)
            csvstatement = self.csvparser.parse()
 
-
            print(f"{csvstatement}")
 
            numlines = len(csvstatement.lines)
-           msg = f"numlines: {numlines}"
+           msg = f"lines: numlines: {numlines}"
            print(msg, file=sys.stderr)
 
-           for line in csvstatement.lines:
-               print(f"{line}")
-               match_result = re.match(r"^REINVESTMENT ", line.memo)
-               if match_result:
-                   msg = f"match!"
-                   print(msg, file=sys.stderr)
-                   invest_line = InvestStatementLine
-                   invest_line.id = line.id
-                   invest_line.data = line.date
-                   invest_line.memo = line.memo
+           numlines = len(csvstatement.invest_lines)
+           msg = f"invest_lines: numlines: {numlines}"
+           print(msg, file=sys.stderr)
 
+           self.statement.invest_lines = csvstatement.lines;
+        
 
-
-
-
+           # for line in csvstatement.lines:
+           #     print(f"{line}")
+           #     match_result = re.match(r"^REINVESTMENT ", line.memo)
+           #     if match_result:
+           #         msg = f"match!"
+           #         print(msg, file=sys.stderr)
+           #         invest_line = InvestStatementLine
+           #         invest_line.id = line.id
+           #         invest_line.data = line.date
+           #         invest_line.memo = line.memo
 
            # for line in csvstatement.invest_lines:
            #     print(f"{line}")
 
-
-
-
-
-
-
            # print(f"{self.statement}") 
 
-           self.statement.lines = csvstatement.lines;
-           self.statement.invest_lines = csvstatement.invest_lines;
+           # self.statement.lines = csvstatement.lines;
+           # self.statement.invest_lines = csvstatement.invest_lines;
 
+           #return csvstatement
+           # return None
+           print(f"{self.statement}")
            return self.statement
+
+
+
 
 
 ##########################################################################
