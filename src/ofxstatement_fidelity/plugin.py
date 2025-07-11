@@ -62,6 +62,8 @@ class myCsvStatementParser(StatementParser[List[str]]):
 
 
 class FidelityParser(myCsvStatementParser):
+    statement: Statement
+    id_generator: IdGenerator
 
     date_format = "%m/%d/%Y"
     mappings = {
@@ -69,6 +71,15 @@ class FidelityParser(myCsvStatementParser):
             'memo': 1,
             'amount': 10
     }
+
+    # def __init__(self, filename: str) -> None:
+    #     super().__init__()
+    #     self.filename = filename
+    #     self.statement = Statement()
+    #     self.statement.broker_id = "Fidelity"
+    #     self.statement.currency = "USD"
+    #     self.id_generator = IdGenerator()
+
 
 
 
@@ -78,6 +89,9 @@ class FidelityParser(myCsvStatementParser):
         # msg = f"__init__ : {filename}"
         msg = f"__init__ :"
         print(msg, file=sys.stderr)
+        self.statement = Statement()
+        self.statement.broker_id = "Fidelity"
+        self.statement.currency = "USD"
         self.id_generator = IdGenerator()
 
 
