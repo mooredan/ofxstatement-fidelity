@@ -63,7 +63,7 @@ class myCsvStatementParser(StatementParser[List[str]]):
 
 class FidelityParser(myCsvStatementParser):
     statement: Statement
-    id_generator: IdGenerator
+    # id_generator: IdGenerator
 
     date_format = "%m/%d/%Y"
     mappings = {
@@ -240,30 +240,12 @@ class FidelityCSVParser(AbstractStatementParser):
            msg = f"invest_lines: numlines: {numlines}"
            print(msg, file=sys.stderr)
 
+
+
+
            self.statement.invest_lines = csvstatement.lines;
         
 
-           # for line in csvstatement.lines:
-           #     print(f"{line}")
-           #     match_result = re.match(r"^REINVESTMENT ", line.memo)
-           #     if match_result:
-           #         msg = f"match!"
-           #         print(msg, file=sys.stderr)
-           #         invest_line = InvestStatementLine
-           #         invest_line.id = line.id
-           #         invest_line.data = line.date
-           #         invest_line.memo = line.memo
-
-           # for line in csvstatement.invest_lines:
-           #     print(f"{line}")
-
-           # print(f"{self.statement}") 
-
-           # self.statement.lines = csvstatement.lines;
-           # self.statement.invest_lines = csvstatement.invest_lines;
-
-           #return csvstatement
-           # return None
            print(f"{self.statement}")
            return self.statement
 
