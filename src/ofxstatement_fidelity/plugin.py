@@ -186,8 +186,10 @@ class FidelityCSVParser(AbstractStatementParser):
 
            numlines = len(csvstatement.lines)
            msg = f"numlines: {numlines}"
-
            print(msg, file=sys.stderr)
+
+           for line in csvstatement.lines:
+               print(f"{line}")
 
 
            print(f"{self.statement}") 
