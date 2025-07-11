@@ -46,8 +46,8 @@ class myCsvStatementParser(StatementParser[List[str]]):
     def split_records(self) -> Iterable[List[str]]:
         return csv.reader(self.fin)
 
-    def parse_record(self, line: List[str]) -> Optional[StatementLine]:
-        stmt_line = StatementLine()
+    def parse_record(self, line: List[str]) -> Optional[InvestStatementLine]:
+        invest_stmt_line = InvestStatementLine()
         for field, col in self.mappings.items():
             if col >= len(line):
                 raise ValueError(
@@ -55,8 +55,8 @@ class myCsvStatementParser(StatementParser[List[str]]):
                 )
             rawvalue = line[col]
             value = self.parse_value(rawvalue, field)
-            setattr(stmt_line, field, value)
-        return stmt_line
+            setattr(invest_stmt_line, field, value)
+        return invest_stmt_line
 
 
 # class FidelityParser(CsvStatementParser[str]):
