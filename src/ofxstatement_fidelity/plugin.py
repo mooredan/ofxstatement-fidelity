@@ -36,7 +36,6 @@ class FidelityCSVParser(AbstractStatementParser):
     date_format: str = "%Y-%m-%d"
     cur_record: int = 0
 
-
     def __init__(self, filename: str) -> None:
         super().__init__()
         self.filename = filename
@@ -47,15 +46,12 @@ class FidelityCSVParser(AbstractStatementParser):
         msg = f"__init__ : {filename}"
         print(msg, file=sys.stderr)
 
-
     def parse_datetime(self, value: str) -> datetime:
         return datetime.strptime(value, self.date_format)
-
 
     def parse_decimal(self, value: str) -> D:
         # some plugins pass localised numbers, clean them up
         return D(value.replace(",", ".").replace(" ", ""))
-
 
     def parse_value(self, value: Optional[str], field: str) -> Any:
         tp = StatementLine.__annotations__.get(field)
@@ -68,7 +64,6 @@ class FidelityCSVParser(AbstractStatementParser):
             return self.parse_decimal(value)
         else:
             return value
-
 
     def parse_record(self, line):
         """Parse given transaction line and return StatementLine object"""
@@ -91,7 +86,6 @@ class FidelityCSVParser(AbstractStatementParser):
         # line[10] : Amount ($)
         # line[11] : Cash Balance ($)
         # line[12] : Settlement Date
-
 
         # msg = f"self.cur_record: {self.cur_record}"
         # print(msg, file=sys.stderr)
@@ -120,9 +114,8 @@ class FidelityCSVParser(AbstractStatementParser):
 
         # # # print({list}, file=sys.stderr)
         for idx in range(13):
-           msg = f"line[{idx}]: {line[idx]}"
-           print(msg, file=sys.stderr)
-
+            msg = f"line[{idx}]: {line[idx]}"
+            print(msg, file=sys.stderr)
 
         invest_stmt_line.memo = line[1]
 
@@ -139,7 +132,6 @@ class FidelityCSVParser(AbstractStatementParser):
         value = self.parse_value(rawvalue, field)
         setattr(invest_stmt_line, field, value)
         # invest_stmt_line.amount = Decimal(line[10])
-
 
         date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
         invest_stmt_line.date = date
@@ -188,7 +180,6 @@ class FidelityCSVParser(AbstractStatementParser):
         print(f"{invest_stmt_line}")
         return invest_stmt_line
 
-
     # parse the CSV file and return a Statement
     def parse(self) -> Statement:
         """Main entry point for parsers"""
@@ -201,14 +192,13 @@ class FidelityCSVParser(AbstractStatementParser):
 
             # loop through the CSV file lines
             for csv_line in reader:
-               self.cur_record += 1
-               if not csv_line:
-                  continue
-               invest_stmt_line = self.parse_record(csv_line)
-               if invest_stmt_line:
-                  invest_stmt_line.assert_valid()
-                  self.statement.invest_lines.append(invest_stmt_line)
-
+                self.cur_record += 1
+                if not csv_line:
+                    continue
+                invest_stmt_line = self.parse_record(csv_line)
+                if invest_stmt_line:
+                    invest_stmt_line.assert_valid()
+                    self.statement.invest_lines.append(invest_stmt_line)
 
             # derive account id from file name
             match = re.search(
@@ -227,8 +217,12 @@ class FidelityCSVParser(AbstractStatementParser):
                 invest_line.id = new_id
 
             # figure out start_date and end_date for the statement
-            self.statement.start_date = min(sl.date for sl in self.statement.invest_lines if sl.date is not None)
-            self.statement.end_date   = max(sl.date for sl in self.statement.invest_lines if sl.date is not None)
+            self.statement.start_date = min(
+                sl.date for sl in self.statement.invest_lines if sl.date is not None
+            )
+            self.statement.end_date = max(
+                sl.date for sl in self.statement.invest_lines if sl.date is not None
+            )
 
             print(f"self.statement.start_date : {self.statement.start_date}")
             print(f"self.statement.end_date : {self.statement.end_date}")
