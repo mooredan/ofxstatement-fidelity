@@ -61,8 +61,9 @@ class FidelityCSVParser(FidelityCsvStatementParser):
     statement: Statement
     # id_generator: IdGenerator
 
-    date_format = "%m/%d/%Y"
-    mappings = {"date": 0, "memo": 1, "fees": 8, "amount": 10}
+    # date_format = "%m/%d/%Y"
+    # mappings = {"date": 0, "memo": 1, "fees": 8, "amount": 10}
+    mappings = {"memo": 1, "fees": 8, "amount": 10}
 
     # def __init__(self, filename: str) -> None:
     #     super().__init__()
@@ -137,12 +138,13 @@ class FidelityCSVParser(FidelityCsvStatementParser):
             return None
 
         # # # print({list}, file=sys.stderr)
-        # for idx in range(13):
-        #    msg = f"line[{idx}]: {line[idx]}"
-        #    print(msg, file=sys.stderr)
+        for idx in range(13):
+           msg = f"line[{idx}]: {line[idx]}"
+           print(msg, file=sys.stderr)
 
         invest_stmt_line = super(FidelityCSVParser, self).parse_record(line)
         date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
+        invest_stmt_line.date = date
         id = self.id_generator.create_id(date)
         invest_stmt_line.id = id
 
@@ -222,8 +224,24 @@ class FidelityParser(AbstractStatementParser):
             if match:
                 self.statement.account_id = match[1]
 
+
+            # # translate and move records from lines to invest_lines 
+            # # can we reverse these as we go
+            # for line in self.statement.lines:
+            #    invest_line = InvestStatementLine()
+            #    invest_line.id     =   line.id
+            #    invest_line.date   =   line.date
+            #    invest_line.memo   =   line.memo
+                  
+
             self.statement.invest_lines = csvstatement.lines
+
+
+
+            # reverse the lines
             self.statement.invest_lines.reverse()
+
+
             # after reversing the lines in the list, update the id
 
             for line in self.statement.invest_lines:
@@ -231,16 +249,12 @@ class FidelityParser(AbstractStatementParser):
                 new_id = self.id_generator.create_id(date)
                 line.id = new_id
 
-            for line in self.statement.invest_lines:
-                if self.statement.start_date == None:
-                    self.statement.start_date = line.date
-                if self.statement.end_date == None:
-                    self.statement.end_date = line.date
-                if line.date < self.statement.start_date:
-                    self.statement.start_date = line.date
-                if line.date > self.statement.end_date:
-                    self.statement.end_date = line.date
+            # figure out start_date and end_date for the statement
+            self.statement.start_date = min(sl.date for sl in self.statement.invest_lines if sl.date is not None)
+            self.statement.end_date   = max(sl.date for sl in self.statement.invest_lines if sl.date is not None)
 
+            print(f"self.statement.start_date : {self.statement.start_date}")
+            print(f"self.statement.end_date : {self.statement.end_date}")
 
             print(f"{self.statement}")
             return self.statement
