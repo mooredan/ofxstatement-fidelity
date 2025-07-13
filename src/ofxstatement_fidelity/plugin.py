@@ -62,7 +62,7 @@ class FidelityCSVParser(FidelityCsvStatementParser):
     # id_generator: IdGenerator
 
     date_format = "%m/%d/%Y"
-    mappings = {"date": 0, "memo": 1, "amount": 10}
+    mappings = {"date": 0, "memo": 1, "fees": 8, "amount": 10}
 
     # def __init__(self, filename: str) -> None:
     #     super().__init__()
@@ -116,22 +116,27 @@ class FidelityCSVParser(FidelityCsvStatementParser):
 
         line_length = len(line)
 
+        # there must be exactly 13 fields
         if line_length != 13:
             return None
 
-        # msg = f"line_length: {line_length}"
-        # print(msg, file=sys.stderr)
-
+        # skip blank lines
         if not line[0]:
             return None
 
+        # skip the header
         if line[0] == "Run Date":
             return None
 
+        # skip lines which are comments
         if line[0][:1] == '"':
             return None
 
-        # # print({list}, file=sys.stderr)
+        # skip any line that does not begin with a digit
+        if not line[0][:1].isdigit():
+            return None
+
+        # # # print({list}, file=sys.stderr)
         # for idx in range(13):
         #    msg = f"line[{idx}]: {line[idx]}"
         #    print(msg, file=sys.stderr)
@@ -147,6 +152,9 @@ class FidelityCSVParser(FidelityCsvStatementParser):
             date_user = date
 
         invest_stmt_line.date_user = date_user
+
+        # if not line[8]:
+        #    invest_stmt_line.fees = Decimal(line[8])
 
         match_result = re.match(r"^REINVESTMENT ", line[1])
         if match_result:
@@ -200,25 +208,12 @@ class FidelityParser(AbstractStatementParser):
     def parse(self) -> Statement:
         """Main entry point for parsers"""
         with open(self.filename, "r") as f:
-            msg = f"{self.filename}"
-            print(msg, file=sys.stderr)
-
             # a bit tricky here, Let's use the CSVStatementParser
             # first to conveniently read the Fidelity .csv file
             # then move things over to a statement in which
             # lines are invest_lines
             self.csvparser = FidelityCSVParser(f)
             csvstatement = self.csvparser.parse()
-
-            # print(f"{csvstatement}")
-
-            # numlines = len(csvstatement.lines)
-            # msg = f"lines: numlines: {numlines}"
-            # print(msg, file=sys.stderr)
-
-            # numlines = len(csvstatement.invest_lines)
-            # msg = f"invest_lines: numlines: {numlines}"
-            # print(msg, file=sys.stderr)
 
             # derive account id from file name
             match = re.search(
@@ -229,14 +224,23 @@ class FidelityParser(AbstractStatementParser):
 
             self.statement.invest_lines = csvstatement.lines
             self.statement.invest_lines.reverse()
-            # after reversing, update the id
+            # after reversing the lines in the list, update the id
 
             for line in self.statement.invest_lines:
-                # print(f"{line.id}")
                 date = line.date
                 new_id = self.id_generator.create_id(date)
                 line.id = new_id
-                # print(f"{line.id}")
+
+            for line in self.statement.invest_lines:
+                if self.statement.start_date == None:
+                    self.statement.start_date = line.date
+                if self.statement.end_date == None:
+                    self.statement.end_date = line.date
+                if line.date < self.statement.start_date:
+                    self.statement.start_date = line.date
+                if line.date > self.statement.end_date:
+                    self.statement.end_date = line.date
+
 
             print(f"{self.statement}")
             return self.statement
