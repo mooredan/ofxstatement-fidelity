@@ -14,9 +14,8 @@ from ofxstatement.parser import StatementParser
 from ofxstatement.parser import AbstractStatementParser
 from ofxstatement.statement import Statement, InvestStatementLine, StatementLine
 
-import logging
-
-LOGGER = logging.getLogger(__name__)
+# import logging
+# LOGGER = logging.getLogger(__name__)
 
 import csv
 
@@ -24,76 +23,60 @@ import csv
 class FidelityPlugin(Plugin):
     """Sample plugin (for developers only)"""
 
-    def get_parser(self, filename: str) -> "FidelityParser":
-        parser = FidelityParser(filename)
+    def get_parser(self, filename: str) -> "FidelityCSVParser":
+        parser = FidelityCSVParser(filename)
         return parser
 
 
-class FidelityCsvStatementParser(StatementParser[List[str]]):
-    """Generic csv statement parser"""
-
-    fin: TextIO  # file input stream
-
-    # 0-based csv column mapping to StatementLine field
-    mappings: Dict[str, int] = {}
-
-    def __init__(self, fin: TextIO) -> None:
-        super().__init__()
-        self.fin = fin
-
-    # def split_records(self) -> Iterable[List[str]]:
-    #     return csv.reader(self.fin)
-
-    def parse_record(self, line: List[str]) -> Optional[InvestStatementLine]:
-        invest_stmt_line = InvestStatementLine()
-        for field, col in self.mappings.items():
-            if col >= len(line):
-                raise ValueError(
-                    "Cannot find column %s in line of %s items " % (col, len(line))
-                )
-            rawvalue = line[col]
-            value = self.parse_value(rawvalue, field)
-            setattr(invest_stmt_line, field, value)
-        return invest_stmt_line
-
-
-class FidelityCSVParser(FidelityCsvStatementParser):
+class FidelityCSVParser(AbstractStatementParser):
     statement: Statement
-    # id_generator: IdGenerator
+    fin: TextIO  # file input stream
+    # 0-based csv column mapping to StatementLine field
 
-    # date_format = "%m/%d/%Y"
-    # mappings = {"date": 0, "memo": 1, "fees": 8, "amount": 10}
-    mappings = {"memo": 1, "fees": 8, "amount": 10}
+    date_format: str = "%Y-%m-%d"
+    cur_record: int = 0
 
-    # def __init__(self, filename: str) -> None:
-    #     super().__init__()
-    #     self.filename = filename
-    #     self.statement = Statement()
-    #     self.statement.broker_id = "Fidelity"
-    #     self.statement.currency = "USD"
-    #     self.id_generator = IdGenerator()
 
-    def __init__(self, f):
-        super().__init__(f)
-        #     self.filename = filename
-        # msg = f"__init__ : {filename}"
-        # msg = f"__init__ :"
-        # print(msg, file=sys.stderr)
+    def __init__(self, filename: str) -> None:
+        super().__init__()
+        self.filename = filename
         self.statement = Statement()
         self.statement.broker_id = "Fidelity"
         self.statement.currency = "USD"
         self.id_generator = IdGenerator()
+        msg = f"__init__ : {filename}"
+        print(msg, file=sys.stderr)
 
-    # def split_records(self) -> Iterable[str]:
-    def split_records(self):
-        """Return iterable object consisting of a line per transaction"""
-        # msg = f"split_records"
-        # print(msg, file=sys.stderr)
-        reader = csv.reader(self.fin)
-        return reader
+
+    def parse_datetime(self, value: str) -> datetime:
+        return datetime.strptime(value, self.date_format)
+
+
+    def parse_decimal(self, value: str) -> D:
+        # some plugins pass localised numbers, clean them up
+        return D(value.replace(",", ".").replace(" ", ""))
+
+
+    def parse_value(self, value: Optional[str], field: str) -> Any:
+        tp = StatementLine.__annotations__.get(field)
+        if value is None:
+            return None
+
+        if tp in (datetime, Optional[datetime]):
+            return self.parse_datetime(value)
+        elif tp in (Decimal, Optional[Decimal]):
+            return self.parse_decimal(value)
+        else:
+            return value
+
 
     def parse_record(self, line):
         """Parse given transaction line and return StatementLine object"""
+
+        msg = f"parse_record"
+        print(msg, file=sys.stderr)
+
+        invest_stmt_line = InvestStatementLine()
 
         # line[0 ] : Run Date
         # line[1 ] : Action
@@ -109,8 +92,6 @@ class FidelityCSVParser(FidelityCsvStatementParser):
         # line[11] : Cash Balance ($)
         # line[12] : Settlement Date
 
-        # msg = f"parse_record"
-        # print(msg, file=sys.stderr)
 
         # msg = f"self.cur_record: {self.cur_record}"
         # print(msg, file=sys.stderr)
@@ -142,7 +123,24 @@ class FidelityCSVParser(FidelityCsvStatementParser):
            msg = f"line[{idx}]: {line[idx]}"
            print(msg, file=sys.stderr)
 
-        invest_stmt_line = super(FidelityCSVParser, self).parse_record(line)
+
+        invest_stmt_line.memo = line[1]
+
+        # fees
+        field = "fees"
+        rawvalue = line[8]
+        value = self.parse_value(rawvalue, field)
+        setattr(invest_stmt_line, field, value)
+        # invest_stmt_line.fees = Decimal(line[8])
+
+        # amount
+        field = "amount"
+        rawvalue = line[10]
+        value = self.parse_value(rawvalue, field)
+        setattr(invest_stmt_line, field, value)
+        # invest_stmt_line.amount = Decimal(line[10])
+
+
         date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
         invest_stmt_line.date = date
         id = self.id_generator.create_id(date)
@@ -154,9 +152,6 @@ class FidelityCSVParser(FidelityCsvStatementParser):
             date_user = date
 
         invest_stmt_line.date_user = date_user
-
-        # if not line[8]:
-        #    invest_stmt_line.fees = Decimal(line[8])
 
         match_result = re.match(r"^REINVESTMENT ", line[1])
         if match_result:
@@ -191,31 +186,29 @@ class FidelityCSVParser(FidelityCsvStatementParser):
             invest_stmt_line.unit_price = Decimal(line[6])
 
         print(f"{invest_stmt_line}")
-
         return invest_stmt_line
 
 
-class FidelityParser(AbstractStatementParser):
-    statement: Statement
-    csvparser: FidelityCSVParser
-
-    def __init__(self, filename: str) -> None:
-        super().__init__()
-        self.filename = filename
-        self.statement = Statement()
-        self.statement.broker_id = "Fidelity"
-        self.statement.currency = "USD"
-        self.id_generator = IdGenerator()
-
+    # parse the CSV file and return a Statement
     def parse(self) -> Statement:
         """Main entry point for parsers"""
-        with open(self.filename, "r") as f:
-            # a bit tricky here, Let's use the CSVStatementParser
-            # first to conveniently read the Fidelity .csv file
-            # then move things over to a statement in which
-            # lines are invest_lines
-            self.csvparser = FidelityCSVParser(f)
-            csvstatement = self.csvparser.parse()
+        with open(self.filename, "r") as fin:
+
+            self.fin = fin
+
+            # reader = self.split_records()
+            reader = csv.reader(self.fin)
+
+            # loop through the CSV file lines
+            for csv_line in reader:
+               self.cur_record += 1
+               if not csv_line:
+                  continue
+               invest_stmt_line = self.parse_record(csv_line)
+               if invest_stmt_line:
+                  invest_stmt_line.assert_valid()
+                  self.statement.invest_lines.append(invest_stmt_line)
+
 
             # derive account id from file name
             match = re.search(
@@ -224,30 +217,14 @@ class FidelityParser(AbstractStatementParser):
             if match:
                 self.statement.account_id = match[1]
 
-
-            # # translate and move records from lines to invest_lines 
-            # # can we reverse these as we go
-            # for line in self.statement.lines:
-            #    invest_line = InvestStatementLine()
-            #    invest_line.id     =   line.id
-            #    invest_line.date   =   line.date
-            #    invest_line.memo   =   line.memo
-                  
-
-            self.statement.invest_lines = csvstatement.lines
-
-
-
             # reverse the lines
             self.statement.invest_lines.reverse()
 
-
             # after reversing the lines in the list, update the id
-
-            for line in self.statement.invest_lines:
-                date = line.date
+            for invest_line in self.statement.invest_lines:
+                date = invest_line.date
                 new_id = self.id_generator.create_id(date)
-                line.id = new_id
+                invest_line.id = new_id
 
             # figure out start_date and end_date for the statement
             self.statement.start_date = min(sl.date for sl in self.statement.invest_lines if sl.date is not None)
