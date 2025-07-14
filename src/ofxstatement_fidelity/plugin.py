@@ -43,8 +43,6 @@ class FidelityCSVParser(AbstractStatementParser):
         self.statement.broker_id = "Fidelity"
         self.statement.currency = "USD"
         self.id_generator = IdGenerator()
-        msg = f"__init__ : {filename}"
-        print(msg, file=sys.stderr)
 
     def parse_datetime(self, value: str) -> datetime:
         return datetime.strptime(value, self.date_format)
@@ -67,9 +65,6 @@ class FidelityCSVParser(AbstractStatementParser):
 
     def parse_record(self, line):
         """Parse given transaction line and return StatementLine object"""
-
-        msg = f"parse_record"
-        print(msg, file=sys.stderr)
 
         invest_stmt_line = InvestStatementLine()
 
@@ -112,10 +107,9 @@ class FidelityCSVParser(AbstractStatementParser):
         if not line[0][:1].isdigit():
             return None
 
-        # # # print({list}, file=sys.stderr)
-        for idx in range(13):
-            msg = f"line[{idx}]: {line[idx]}"
-            print(msg, file=sys.stderr)
+        # for idx in range(13):
+        #     msg = f"line[{idx}]: {line[idx]}"
+        #     print(msg, file=sys.stderr)
 
         invest_stmt_line.memo = line[1]
 
@@ -177,7 +171,32 @@ class FidelityCSVParser(AbstractStatementParser):
             invest_stmt_line.units = Decimal(line[5])
             invest_stmt_line.unit_price = Decimal(line[6])
 
-        print(f"{invest_stmt_line}")
+        match_result = re.match(r"^DIRECT DEBIT ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "INVBANKTRAN"
+            invest_stmt_line.trntype_detailed = "DEBIT"
+
+        match_result = re.match(r"^Electronic Funds Transfer Paid ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "INVBANKTRAN"
+            invest_stmt_line.trntype_detailed = "DEBIT"
+
+        match_result = re.match(r"^TRANSFERRED FROM ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "INVBANKTRAN"
+            invest_stmt_line.trntype_detailed = "CREDIT"
+
+        match_result = re.match(r"^DIRECT DEPOSIT ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "INVBANKTRAN"
+            invest_stmt_line.trntype_detailed = "CREDIT"
+
+        match_result = re.match(r"^INTEREST EARNED ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "INVBANKTRAN"
+            invest_stmt_line.trntype_detailed = "CREDIT"
+
+        # print(f"{invest_stmt_line}")
         return invest_stmt_line
 
     # parse the CSV file and return a Statement
@@ -187,7 +206,6 @@ class FidelityCSVParser(AbstractStatementParser):
 
             self.fin = fin
 
-            # reader = self.split_records()
             reader = csv.reader(self.fin)
 
             # loop through the CSV file lines
@@ -224,10 +242,7 @@ class FidelityCSVParser(AbstractStatementParser):
                 sl.date for sl in self.statement.invest_lines if sl.date is not None
             )
 
-            print(f"self.statement.start_date : {self.statement.start_date}")
-            print(f"self.statement.end_date : {self.statement.end_date}")
-
-            print(f"{self.statement}")
+            # print(f"{self.statement}")
             return self.statement
 
 
