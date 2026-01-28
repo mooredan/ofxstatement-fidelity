@@ -186,6 +186,11 @@ class FidelityCSVParser(AbstractStatementParser):
             invest_stmt_line.trntype = "INVBANKTRAN"
             invest_stmt_line.trntype_detailed = "CREDIT"
 
+        match_result = re.match(r"^TRANSFERRED TO ", line[1])
+        if match_result:
+            invest_stmt_line.trntype = "INVBANKTRAN"
+            invest_stmt_line.trntype_detailed = "DEBIT"
+
         match_result = re.match(r"^DIRECT DEPOSIT ", line[1])
         if match_result:
             invest_stmt_line.trntype = "INVBANKTRAN"
