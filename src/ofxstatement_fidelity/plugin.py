@@ -201,7 +201,9 @@ class FidelityCSVParser(AbstractStatementParser):
     # parse the CSV file and return a Statement
     def parse(self) -> Statement:
         """Main entry point for parsers"""
-        with open(self.filename, "r") as fin:
+        # newline='' is required for the csv module
+        # utf-8-sig handles the Byte Order Mark (BOM) often found in bank exports
+        with open(self.filename, "r", encoding="utf-8-sig", newline="") as fin:
 
             self.fin = fin
 
