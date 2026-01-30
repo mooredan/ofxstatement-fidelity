@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ofxstatement-fidelity"
-version = "1.0.1"
+version = "1.0.2"
 authors = [
   { name="Dan Moore", email="dan@suncup.net" },
 ]
