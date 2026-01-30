@@ -1,40 +1,41 @@
-import sys
-
-from os import path
-
+import csv
+import re
 from decimal import Decimal, Decimal as D
 from datetime import datetime
-import re
-from typing import Dict, Optional, Any, Iterable, List, TextIO, TypeVar, Generic
+from typing import Dict, Optional, Any, TextIO
+from os import path
 
 from ofxstatement.plugin import Plugin
-from ofxstatement.parser import StatementParser
-
-# from ofxstatement.parser import CsvStatementParser
 from ofxstatement.parser import AbstractStatementParser
 from ofxstatement.statement import Statement, InvestStatementLine, StatementLine
 
-# import logging
-# LOGGER = logging.getLogger(__name__)
-
-import csv
-
-
 class FidelityPlugin(Plugin):
-    """Sample plugin (for developers only)"""
+    """Fidelity CSV plugin for ofxstatement"""
 
     def get_parser(self, filename: str) -> "FidelityCSVParser":
-        parser = FidelityCSVParser(filename)
-        return parser
+        return FidelityCSVParser(filename)
 
 
 class FidelityCSVParser(AbstractStatementParser):
     statement: Statement
-    fin: TextIO  # file input stream
-    # 0-based csv column mapping to StatementLine field
-
+    fin: TextIO
+    
     date_format: str = "%Y-%m-%d"
     cur_record: int = 0
+
+    # Pre-compile regex patterns for performance
+    mappings = [
+        (re.compile(r"^REINVESTMENT "), "BUYSTOCK", "BUY"),
+        (re.compile(r"^DIVIDEND RECEIVED "), "INCOME", "DIV"),
+        (re.compile(r"^YOU BOUGHT "), "BUYSTOCK", "BUY"),
+        (re.compile(r"^YOU SOLD "), "SELLSTOCK", "SELL"),
+        (re.compile(r"^DIRECT DEBIT "), "INVBANKTRAN", "DEBIT"),
+        (re.compile(r"^Electronic Funds Transfer Paid "), "INVBANKTRAN", "DEBIT"),
+        (re.compile(r"^TRANSFERRED FROM "), "INVBANKTRAN", "CREDIT"),
+        (re.compile(r"^TRANSFERRED TO "), "INVBANKTRAN", "DEBIT"),
+        (re.compile(r"^DIRECT DEPOSIT "), "INVBANKTRAN", "CREDIT"),
+        (re.compile(r"^INTEREST EARNED "), "INVBANKTRAN", "CREDIT"),
+    ]
 
     def __init__(self, filename: str) -> None:
         super().__init__()
@@ -66,8 +67,7 @@ class FidelityCSVParser(AbstractStatementParser):
     def parse_record(self, line):
         """Parse given transaction line and return StatementLine object"""
 
-        invest_stmt_line = InvestStatementLine()
-
+        # CSV Column Mapping Reference:
         # line[0 ] : Run Date
         # line[1 ] : Action
         # line[2 ] : Symbol
@@ -81,142 +81,68 @@ class FidelityCSVParser(AbstractStatementParser):
         # line[10] : Amount ($)
         # line[11] : Cash Balance ($)
         # line[12] : Settlement Date
-
-        # msg = f"self.cur_record: {self.cur_record}"
-        # print(msg, file=sys.stderr)
-
-        line_length = len(line)
-
-        # there must be exactly 13 fields
-        if line_length != 13:
-            return None
-
-        # skip blank lines
-        if not line[0]:
-            return None
-
+        
         # Robustness: Check if the first column is a valid date.
-        # If not (e.g. headers, footers, comments), skip the line.
         try:
             date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
         except ValueError:
             return None
+            
+        line_length = len(line)
+        if line_length != 13:
+            return None
 
-        # for idx in range(13):
-        #     msg = f"line[{idx}]: {line[idx]}"
-        #     print(msg, file=sys.stderr)
+        invest_stmt_line = InvestStatementLine()
+        invest_stmt_line.date = date
+        invest_stmt_line.date_user = date 
+        
+        # Try to parse settlement date
+        if line[12]:
+            try:
+                invest_stmt_line.date_user = datetime.strptime(line[12][0:10], "%m/%d/%Y")
+            except ValueError:
+                pass
 
         invest_stmt_line.memo = line[1]
 
-        # fees
-        field = "fees"
-        rawvalue = line[8]
-        value = self.parse_value(rawvalue, field)
-        setattr(invest_stmt_line, field, value)
-        # invest_stmt_line.fees = Decimal(line[8])
+        # Common fields
+        if line[8]:
+            invest_stmt_line.fees = self.parse_decimal(line[8])
+        if line[10]:
+            invest_stmt_line.amount = self.parse_decimal(line[10])
 
-        # amount
-        field = "amount"
-        rawvalue = line[10]
-        value = self.parse_value(rawvalue, field)
-        setattr(invest_stmt_line, field, value)
-        # invest_stmt_line.amount = Decimal(line[10])
-
-        invest_stmt_line.date = date
-        id = self.id_generator.create_id(date)
-        invest_stmt_line.id = id
-
-        if line[12]:
-            date_user = datetime.strptime(line[12][0:10], "%m/%d/%Y")
-        else:
-            date_user = date
-
-        invest_stmt_line.date_user = date_user
-
-        match_result = re.match(r"^REINVESTMENT ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "BUYSTOCK"
-            invest_stmt_line.trntype_detailed = "BUY"
+        # 1. Identify the Transaction Type
+        action = line[1]
+        for pattern, trntype, detailed in self.mappings:
+            if pattern.match(action):
+                invest_stmt_line.trntype = trntype
+                invest_stmt_line.trntype_detailed = detailed
+                break
+        
+        # 2. Extract Data based on Type
+        if invest_stmt_line.trntype in ("BUYSTOCK", "SELLSTOCK"):
             invest_stmt_line.security_id = line[2]
-            invest_stmt_line.units = Decimal(line[5])
-            invest_stmt_line.unit_price = Decimal(line[6])
-
-        match_result = re.match(r"^DIVIDEND RECEIVED ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "INCOME"
-            invest_stmt_line.trntype_detailed = "DIV"
+            invest_stmt_line.units = self.parse_decimal(line[5])
+            invest_stmt_line.unit_price = self.parse_decimal(line[6])
+            
+        elif invest_stmt_line.trntype == "INCOME" and invest_stmt_line.trntype_detailed == "DIV":
             invest_stmt_line.security_id = line[2]
-            # invest_stmt_line.units = line[5]
-            # invest_stmt_line.unit_price = line[6]
-
-        match_result = re.match(r"^YOU BOUGHT ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "BUYSTOCK"
-            invest_stmt_line.trntype_detailed = "BUY"
-            invest_stmt_line.security_id = line[2]
-            invest_stmt_line.units = Decimal(line[5])
-            invest_stmt_line.unit_price = Decimal(line[6])
-
-        match_result = re.match(r"^YOU SOLD ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "SELLSTOCK"
-            invest_stmt_line.trntype_detailed = "SELL"
-            invest_stmt_line.security_id = line[2]
-            invest_stmt_line.units = Decimal(line[5])
-            invest_stmt_line.unit_price = Decimal(line[6])
-
-        match_result = re.match(r"^DIRECT DEBIT ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "INVBANKTRAN"
-            invest_stmt_line.trntype_detailed = "DEBIT"
-
-        match_result = re.match(r"^Electronic Funds Transfer Paid ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "INVBANKTRAN"
-            invest_stmt_line.trntype_detailed = "DEBIT"
-
-        match_result = re.match(r"^TRANSFERRED FROM ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "INVBANKTRAN"
-            invest_stmt_line.trntype_detailed = "CREDIT"
-
-        match_result = re.match(r"^TRANSFERRED TO ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "INVBANKTRAN"
-            invest_stmt_line.trntype_detailed = "DEBIT"
-
-        match_result = re.match(r"^DIRECT DEPOSIT ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "INVBANKTRAN"
-            invest_stmt_line.trntype_detailed = "CREDIT"
-
-        match_result = re.match(r"^INTEREST EARNED ", line[1])
-        if match_result:
-            invest_stmt_line.trntype = "INVBANKTRAN"
-            invest_stmt_line.trntype_detailed = "CREDIT"
-
-        # print(f"{invest_stmt_line}")
+            
         return invest_stmt_line
 
-    # parse the CSV file and return a Statement
     def parse(self) -> Statement:
         """Main entry point for parsers"""
-        # newline='' is required for the csv module
-        # utf-8-sig handles the Byte Order Mark (BOM) often found in bank exports
         with open(self.filename, "r", encoding="utf-8-sig", newline="") as fin:
-
             self.fin = fin
-
             reader = csv.reader(self.fin)
 
-            # loop through the CSV file lines
             for csv_line in reader:
                 self.cur_record += 1
                 if not csv_line:
                     continue
                 invest_stmt_line = self.parse_record(csv_line)
                 if invest_stmt_line:
-                    invest_stmt_line.assert_valid()
+                    # Note: We do NOT validate here because IDs are assigned later
                     self.statement.invest_lines.append(invest_stmt_line)
 
             # derive account id from file name
@@ -226,39 +152,34 @@ class FidelityCSVParser(AbstractStatementParser):
             if match:
                 self.statement.account_id = match[1]
 
-            # reverse the lines
+            # reverse the lines to get Chronological Order (Oldest -> Newest)
             self.statement.invest_lines.reverse()
 
-            # after reversing the lines in the list, update the id
+            # Generate IDs sequentially after sorting and VALIDATE
             for invest_line in self.statement.invest_lines:
-                date = invest_line.date
-                new_id = self.id_generator.create_id(date)
+                new_id = self.id_generator.create_id(invest_line.date)
                 invest_line.id = new_id
+                # Now that ID exists, we can validate the line
+                invest_line.assert_valid()
 
-            # figure out start_date and end_date for the statement
-            self.statement.start_date = min(
-                sl.date for sl in self.statement.invest_lines if sl.date is not None
-            )
-            self.statement.end_date = max(
-                sl.date for sl in self.statement.invest_lines if sl.date is not None
-            )
+            if self.statement.invest_lines:
+                self.statement.start_date = min(
+                    sl.date for sl in self.statement.invest_lines if sl.date is not None
+                )
+                self.statement.end_date = max(
+                    sl.date for sl in self.statement.invest_lines if sl.date is not None
+                )
 
-            # print(f"{self.statement}")
             return self.statement
 
 
-##########################################################################
 class IdGenerator:
-    """Generates a unique ID based on the date
-
-    Hopefully any JSON file that we get will have all the transactions for a
-    given date, and hopefully in the same order each time so that these IDs
-    will match up across exports.
-    """
-
+    """Generates a unique ID based on the date"""
     def __init__(self) -> None:
         self.date_count: Dict[datetime, int] = {}
 
     def create_id(self, date) -> str:
         self.date_count[date] = self.date_count.get(date, 0) + 1
         return f'{datetime.strftime(date, "%Y%m%d")}-{self.date_count[date]}'
+
+
