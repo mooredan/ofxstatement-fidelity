@@ -95,16 +95,11 @@ class FidelityCSVParser(AbstractStatementParser):
         if not line[0]:
             return None
 
-        # skip the header
-        if line[0] == "Run Date":
-            return None
-
-        # skip lines which are comments
-        if line[0][:1] == '"':
-            return None
-
-        # skip any line that does not begin with a digit
-        if not line[0][:1].isdigit():
+        # Robustness: Check if the first column is a valid date.
+        # If not (e.g. headers, footers, comments), skip the line.
+        try:
+            date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
+        except ValueError:
             return None
 
         # for idx in range(13):
@@ -127,7 +122,6 @@ class FidelityCSVParser(AbstractStatementParser):
         setattr(invest_stmt_line, field, value)
         # invest_stmt_line.amount = Decimal(line[10])
 
-        date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
         invest_stmt_line.date = date
         id = self.id_generator.create_id(date)
         invest_stmt_line.id = id
