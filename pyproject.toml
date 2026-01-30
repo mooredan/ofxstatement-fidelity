@@ -29,11 +29,43 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/mooredan/ofxstatement-fidelity/"
 
+# --- Entry Points ---
+# This registers your plugin so ofxstatement can find it
 [project.entry-points."ofxstatement"]
 fidelity = "ofxstatement_fidelity.plugin:FidelityPlugin"
+
+# --- Optional Dependencies (Dev Tools) ---
+# Allows you to run: pip install -e .[dev]
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "mypy",
+    "build",
+    "twine",
+]
+
+# --- Tool Configurations ---
+
+# Explicitly tell setuptools where your code lives
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "DEBUG"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+
+[tool.mypy]
+files = ["src", "tests"]
+warn_unused_configs = true
+# This prevents mypy from crashing if ofxstatement doesn't have type hints
+ignore_missing_imports = true
