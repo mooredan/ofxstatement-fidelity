@@ -44,10 +44,13 @@ mypy:
 
 .PHONY: clean
 clean:
-	-rm -rf build
-	-rm -rf dist
-	-rm -rf src/$(PROJ).egg-info
-	-rm -rf .pytest_cache
-	-find . -type d -name "__pycache__" -exec rm -rf {} +
+	- @ rm -rf build
+	- @ rm -rf dist
+	- @ rm -rf src/$(PROJ).egg-info
+	- @ rm -rf .pytest_cache
+	- @ rm -f build.log
+	- @ rm -f install.log
+	- @ rm -rf .mypy_cache
+	- @ find . -type d -name "__pycache__" -exec rm -rf {} +
 
 

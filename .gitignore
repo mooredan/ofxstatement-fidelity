@@ -1,13 +1,37 @@
-*.pyc
-*.swp
-develop-eggs
-dist
+# --- Python General ---
+__pycache__/
+*.py[cod]
+*.so
+*.log
+
+# --- Distribution / Packaging ---
+build/
+dist/
 src/*.egg-info
-tags
-build
-eggs
+eggs/
+develop-eggs/
+.eggs/
+
+# --- Unit Test / Coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Type Checking ---
+.mypy_cache/
+
+# --- Virtual Environments ---
+# Common names for local environments
 .venv
+venv/
+env/
+ENV/
+
+# --- IDEs / Editors ---
+.idea/
+.vscode/
+*.swp
+*.swo
 .project
 .pydevproject
 *.sublime*
-*.log
