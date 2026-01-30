@@ -9,6 +9,7 @@ from ofxstatement.plugin import Plugin
 from ofxstatement.parser import AbstractStatementParser
 from ofxstatement.statement import Statement, InvestStatementLine, StatementLine
 
+
 class FidelityPlugin(Plugin):
     """Fidelity CSV plugin for ofxstatement"""
 
@@ -19,7 +20,7 @@ class FidelityPlugin(Plugin):
 class FidelityCSVParser(AbstractStatementParser):
     statement: Statement
     fin: TextIO
-    
+
     date_format: str = "%Y-%m-%d"
     cur_record: int = 0
 
@@ -81,25 +82,27 @@ class FidelityCSVParser(AbstractStatementParser):
         # line[10] : Amount ($)
         # line[11] : Cash Balance ($)
         # line[12] : Settlement Date
-        
+
         # Robustness: Check if the first column is a valid date.
         try:
             date = datetime.strptime(line[0][0:10], "%m/%d/%Y")
         except ValueError:
             return None
-            
+
         line_length = len(line)
         if line_length != 13:
             return None
 
         invest_stmt_line = InvestStatementLine()
         invest_stmt_line.date = date
-        invest_stmt_line.date_user = date 
-        
+        invest_stmt_line.date_user = date
+
         # Try to parse settlement date
         if line[12]:
             try:
-                invest_stmt_line.date_user = datetime.strptime(line[12][0:10], "%m/%d/%Y")
+                invest_stmt_line.date_user = datetime.strptime(
+                    line[12][0:10], "%m/%d/%Y"
+                )
             except ValueError:
                 pass
 
@@ -118,16 +121,19 @@ class FidelityCSVParser(AbstractStatementParser):
                 invest_stmt_line.trntype = trntype
                 invest_stmt_line.trntype_detailed = detailed
                 break
-        
+
         # 2. Extract Data based on Type
         if invest_stmt_line.trntype in ("BUYSTOCK", "SELLSTOCK"):
             invest_stmt_line.security_id = line[2]
             invest_stmt_line.units = self.parse_decimal(line[5])
             invest_stmt_line.unit_price = self.parse_decimal(line[6])
-            
-        elif invest_stmt_line.trntype == "INCOME" and invest_stmt_line.trntype_detailed == "DIV":
+
+        elif (
+            invest_stmt_line.trntype == "INCOME"
+            and invest_stmt_line.trntype_detailed == "DIV"
+        ):
             invest_stmt_line.security_id = line[2]
-            
+
         return invest_stmt_line
 
     def parse(self) -> Statement:
@@ -175,11 +181,10 @@ class FidelityCSVParser(AbstractStatementParser):
 
 class IdGenerator:
     """Generates a unique ID based on the date"""
+
     def __init__(self) -> None:
         self.date_count: Dict[datetime, int] = {}
 
     def create_id(self, date) -> str:
         self.date_count[date] = self.date_count.get(date, 0) + 1
         return f'{datetime.strftime(date, "%Y%m%d")}-{self.date_count[date]}'
-
-

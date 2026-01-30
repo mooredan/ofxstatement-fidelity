@@ -8,6 +8,7 @@ from ofxstatement_fidelity.plugin import FidelityPlugin
 HERE = os.path.dirname(__file__)
 CSV_FILES = glob.glob(os.path.join(HERE, "*.csv"))
 
+
 @pytest.mark.parametrize("filename", CSV_FILES)
 def test_fidelity_csv_parsing(filename):
     """
@@ -20,14 +21,14 @@ def test_fidelity_csv_parsing(filename):
 
     plugin = FidelityPlugin(UI(), {})
     parser = plugin.get_parser(filename)
-    
+
     statement = parser.parse()
 
     # Basic Validations
     assert statement is not None
     assert statement.broker_id == "Fidelity"
     assert statement.currency == "USD"
-    
+
     # Ensure we actually parsed some lines (assuming test files aren't empty)
     assert len(statement.invest_lines) > 0, f"No transactions found in {filename}"
 
