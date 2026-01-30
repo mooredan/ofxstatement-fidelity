@@ -48,8 +48,8 @@ class FidelityCSVParser(AbstractStatementParser):
         return datetime.strptime(value, self.date_format)
 
     def parse_decimal(self, value: str) -> D:
-        # some plugins pass localised numbers, clean them up
-        return D(value.replace(",", ".").replace(" ", ""))
+        # Remove thousand separators for US format (1,234.56 -> 1234.56)
+        return D(value.replace(",", "").replace(" ", ""))
 
     def parse_value(self, value: Optional[str], field: str) -> Any:
         tp = StatementLine.__annotations__.get(field)
