@@ -78,8 +78,8 @@ class FidelityCSVParser(AbstractStatementParser):
         # line[2 ] : Symbol
         # line[3 ] : Description
         # line[4 ] : Type
-        # line[5 ] : Quantity
-        # line[6 ] : Price ($)
+        # line[5 ] : Price ($)
+        # line[6 ] : Quantity
         # line[7 ] : Commission ($)
         # line[8 ] : Fees ($)
         # line[9 ] : Accrued Interest ($)
@@ -129,8 +129,8 @@ class FidelityCSVParser(AbstractStatementParser):
         # 2. Extract Data based on Type
         if invest_stmt_line.trntype in ("BUYSTOCK", "SELLSTOCK"):
             invest_stmt_line.security_id = line[2]
-            invest_stmt_line.units = self.parse_decimal(line[5])
-            invest_stmt_line.unit_price = self.parse_decimal(line[6])
+            invest_stmt_line.unit_price = self.parse_decimal(line[5])
+            invest_stmt_line.units = self.parse_decimal(line[6])
 
         elif (
             invest_stmt_line.trntype == "INCOME"
