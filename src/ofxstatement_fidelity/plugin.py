@@ -32,6 +32,7 @@ class FidelityCSVParser(AbstractStatementParser):
         (re.compile(r"^YOU SOLD "), "SELLSTOCK", "SELL"),
         (re.compile(r"^DIRECT DEBIT "), "INVBANKTRAN", "DEBIT"),
         (re.compile(r"^Electronic Funds Transfer Paid "), "INVBANKTRAN", "DEBIT"),
+        (re.compile(r"^WIRE TRANSFER TO BANK "), "INVBANKTRAN", "DEBIT"),
         (re.compile(r"^TRANSFERRED FROM "), "INVBANKTRAN", "CREDIT"),
         (re.compile(r"^TRANSFERRED TO "), "INVBANKTRAN", "DEBIT"),
         (re.compile(r"^DIRECT DEPOSIT "), "INVBANKTRAN", "CREDIT"),
