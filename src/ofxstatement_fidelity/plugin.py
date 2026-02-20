@@ -32,6 +32,7 @@ class FidelityCSVParser(AbstractStatementParser):
         (re.compile(r"^YOU SOLD "), "SELLSTOCK", "SELL"),
         (re.compile(r"^DIRECT DEBIT "), "INVBANKTRAN", "DEBIT"),
         (re.compile(r"^Electronic Funds Transfer Paid "), "INVBANKTRAN", "DEBIT"),
+        (re.compile(r"^WIRE TRANSFER TO BANK "), "INVBANKTRAN", "DEBIT"),
         (re.compile(r"^TRANSFERRED FROM "), "INVBANKTRAN", "CREDIT"),
         (re.compile(r"^TRANSFERRED TO "), "INVBANKTRAN", "DEBIT"),
         (re.compile(r"^DIRECT DEPOSIT "), "INVBANKTRAN", "CREDIT"),
@@ -40,6 +41,8 @@ class FidelityCSVParser(AbstractStatementParser):
         (re.compile(r"^PARTIC CONTR "), "INVBANKTRAN", "CREDIT"),
         (re.compile(r"^PARTIAL DISTRIBUTION "), "INVBANKTRAN", "DEBIT"),
         (re.compile(r"^FED TAX W/H "), "INVBANKTRAN", "DEBIT"),
+        (re.compile(r"^SHORT-TERM CAP GAIN "), "INVBANKTRAN", "CREDIT"),
+        (re.compile(r"^LONG-TERM CAP GAIN "), "INVBANKTRAN", "CREDIT"),
     ]
 
     def __init__(self, filename: str) -> None:
