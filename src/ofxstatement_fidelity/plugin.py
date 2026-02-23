@@ -3,7 +3,7 @@ import re
 
 from os import path
 
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal, Decimal as D
 from typing import Any, Dict, Optional, TextIO
 
@@ -111,8 +111,9 @@ class FidelityCSVParser(AbstractStatementParser):
         # fees
         field = "fees"
         rawvalue = line[8]
-        value = self.parse_value(rawvalue, field)
-        setattr(invest_stmt_line, field, value)
+        if rawvalue != "":
+            value = self.parse_value(rawvalue, field)
+            setattr(invest_stmt_line, field, value)
         # invest_stmt_line.fees = Decimal(line[8])
 
         # amount
@@ -223,7 +224,6 @@ class FidelityCSVParser(AbstractStatementParser):
         if re.match(r"^REDEMPTION PAYOUT .*UNITED STATES TREAS BILLS", line[1]):
 
             invest_stmt_line.trntype = "SELLDEBT"
-            invest_stmt_line.trntype_detailed = "SELL"
             invest_stmt_line.security_id = line[2]  # CUSIP
             invest_stmt_line.unit_price = Decimal(
                 "100"
@@ -287,17 +287,24 @@ class FidelityCSVParser(AbstractStatementParser):
 
             # after reversing the lines in the list, update the id
             for invest_line in self.statement.invest_lines:
-                date = invest_line.date
-                new_id = self.id_generator.create_id(date)
+                line_date = invest_line.date
+                new_id = self.id_generator.create_id(line_date)
                 invest_line.id = new_id
 
             # figure out start_date and end_date for the statement
-            self.statement.start_date = min(
-                sl.date for sl in self.statement.invest_lines if sl.date is not None
-            )
-            self.statement.end_date = max(
-                sl.date for sl in self.statement.invest_lines if sl.date is not None
-            )
+            dates = []
+            for sl in self.statement.invest_lines:
+                if sl.date is None:
+                    continue
+                d = sl.date
+                # convert date -> datetime at midnight so types are comparable
+                if isinstance(d, date) and not isinstance(d, datetime):
+                    d = datetime.combine(d, datetime.min.time())
+                dates.append(d)
+
+            if dates:
+                self.statement.start_date = min(dates)
+                self.statement.end_date = max(dates)
 
             # print(f"{self.statement}")
             return self.statement
