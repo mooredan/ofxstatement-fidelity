@@ -40,6 +40,8 @@ class FidelityCSVParser(AbstractStatementParser):
         (re.compile(r"^PARTIC CONTR "), "INVBANKTRAN", "CREDIT"),
         (re.compile(r"^PARTIAL DISTRIBUTION "), "INVBANKTRAN", "DEBIT"),
         (re.compile(r"^FED TAX W/H "), "INVBANKTRAN", "DEBIT"),
+        (re.compile(r"^DISTRIBUTION "), "TRANSFER", "IN"),
+        (re.compile(r"^IN LIEU OF FRX SHARE SPINOFF "), "INCOME", "MISC"),
     ]
 
     def __init__(self, filename: str) -> None:
@@ -132,9 +134,14 @@ class FidelityCSVParser(AbstractStatementParser):
             invest_stmt_line.unit_price = self.parse_decimal(line[5])
             invest_stmt_line.units = self.parse_decimal(line[6])
 
+        elif invest_stmt_line.trntype == "TRANSFER":
+            invest_stmt_line.security_id = line[2]
+            invest_stmt_line.units = self.parse_decimal(line[6])
+            invest_stmt_line.unit_price = invest_stmt_line.amount / invest_stmt_line.units
+
         elif (
             invest_stmt_line.trntype == "INCOME"
-            and invest_stmt_line.trntype_detailed == "DIV"
+            and invest_stmt_line.trntype_detailed in ("DIV", "MISC")
         ):
             invest_stmt_line.security_id = line[2]
 
